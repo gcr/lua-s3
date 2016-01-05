@@ -152,8 +152,4 @@ function S3Bucket:get(key, sink)
    end
 end
 
--- function get_bucket(awsId, awsKey, bucketname, key, sink)
-
--- end
-
 return S3Bucket

@@ -4,14 +4,14 @@ local crypto = require("crypto")
 local cjson = require("cjson")
 local date = require("date") -- this is luadate
 
-local function generateAuthHeaders(awsId, awsKey, awsToken, md5, type, destination)
+local function generateAuthHeaders(awsVerb, awsId, awsKey, awsToken, md5, type, destination)
    -- Thanks to https://github.com/jamesmarlowe/lua-resty-s3/, BSD license.
    -- Used to sign S3 requests.
    -- awsToken is optional.
    local id, key = awsId, awsKey
    local date = os.date("!%a, %d %b %Y %H:%M:%S +0000")
    local hm, err = hmac:new(key)
-   local StringToSign = ("PUT"..string.char(10)..
+   local StringToSign = (awsVerb..string.char(10)..
                          md5..string.char(10)..
                          type..string.char(10)..
                          string.char(10).. -- passing date as an x-amz header
@@ -92,7 +92,7 @@ function S3Bucket:put(key, data)
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
    local md5 = enc(crypto.digest("md5", data, true))
-   local authHeaders = generateAuthHeaders(awsId, awsKey, awsToken,
+   local authHeaders = generateAuthHeaders("PUT", awsId, awsKey, awsToken,
                                          md5,
                                          "",
                                          "/"..bucketname.."/"..key)
@@ -121,7 +121,7 @@ function S3Bucket:get(key, sink)
    local url = "https://"..bucketname..".s3.amazonaws.com/"..key
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
-   local authHeaders = generateAuthHeaders(awsId, awsKey, awsToken,
+   local authHeaders = generateAuthHeaders("GET", awsId, awsKey, awsToken,
                                          "",
                                          "",
                                          "/"..bucketname.."/"..key)

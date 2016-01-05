@@ -115,21 +115,21 @@ function S3Bucket:put(key, data)
 end
 
 function S3Bucket:get(key, sink)
-   -- Try to download destination to the given LT12 source.
+   -- Try to download destination to the given LTN12 source.
    local awsId, awsKey, awsToken = self:getAwsCredentials()
    local bucketname = self.bucket
    local url = "https://"..bucketname..".s3.amazonaws.com/"..key
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
    local authHeaders = generateAuthHeaders(awsId, awsKey, awsToken,
-                                         nil,
+                                         "",
                                          "",
                                          "/"..bucketname.."/"..key)
    local downloadAsString = not sink
    local body
    if downloadAsString then
       body = {}
-      sink = lt12.sink.table(body)
+      sink = ltn12.sink.table(body)
    end
    local _, resultCode, headers, statusLine = http.request{method = "GET",
                               url = url,

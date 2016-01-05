@@ -124,7 +124,7 @@ function S3Bucket:get(key, sink)
    local authHeaders = generateAuthHeaders(awsId, awsKey, awsToken,
                                          nil,
                                          "",
-                                         "/"..bucketname.."/"..destination)
+                                         "/"..bucketname.."/"..key)
    local downloadAsString = not sink
    local body
    if downloadAsString then

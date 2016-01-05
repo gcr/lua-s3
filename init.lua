@@ -141,7 +141,7 @@ function S3Bucket:get(key, sink)
                         }
    if downloadAsString then
       if resultCode ~= 200 then
-         error(string.format("S3 result: %d, %s", resultCode, table.concat(body))
+         error(string.format("S3 result: %d, %s", resultCode, table.concat(body)))
       end
       return table.concat(body)
    else

@@ -1,4 +1,5 @@
 local http = require'socket.http'
+local url = require'socket.url'
 local hmac = require'resty.hmac'
 local crypto = require("crypto")
 local cjson = require("cjson")
@@ -18,6 +19,7 @@ local function generateAuthHeaders(awsVerb, awsId, awsKey, awsToken, md5, type, 
                          "x-amz-date:"..date..string.char(10)..
                          (awsToken and "x-amz-security-token:"..awsToken..string.char(10) or "")..
                          destination)
+   --print(StringToSign)
    headers, err = hm:generate_headers("AWS", id, "sha1", StringToSign)
    return headers, err
 end
@@ -92,6 +94,7 @@ function S3Bucket:put(key, data)
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
    local md5 = enc(crypto.digest("md5", data, true))
+   key = URLencodeIgnoringPath(key)
    local authHeaders = generateAuthHeaders("PUT", awsId, awsKey, awsToken,
                                          md5,
                                          "",
@@ -114,6 +117,15 @@ function S3Bucket:put(key, data)
         }
 end
 
+function URLencodeIgnoringPath(str)
+   -- Encode URL, but don't encode '/' so we can use '/' in keys
+   -- correctly. We can't just blindly encode the URL because that
+   -- would encode '/' as "%2f" and it doesn't handle other characters
+   -- like apostrophe ('), which amazon doesn't expect is encoded.
+   -- It's important to get this right!
+   return url.build_path(string.split(str, "/"))
+end
+
 function S3Bucket:get(key, sink)
    -- Try to download destination to the given LTN12 source.
    local awsId, awsKey, awsToken = self:getAwsCredentials()
@@ -121,6 +133,7 @@ function S3Bucket:get(key, sink)
    local url = "https://"..bucketname..".s3.amazonaws.com/"..key
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
+   key = URLencodeIgnoringPath(key)
    local authHeaders = generateAuthHeaders("GET", awsId, awsKey, awsToken,
                                          "",
                                          "",

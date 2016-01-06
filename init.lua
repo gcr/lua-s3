@@ -5,17 +5,18 @@ local crypto = require("crypto")
 local cjson = require("cjson")
 local date = require("date") -- this is luadate
 
-local function generateAuthHeaders(awsVerb, awsId, awsKey, awsToken, md5, type, destination)
+local function generateAuthHeaders(awsVerb, awsId, awsKey, awsToken, md5, acl, type, destination)
    -- Thanks to https://github.com/jamesmarlowe/lua-resty-s3/, BSD license.
    -- Used to sign S3 requests.
-   -- awsToken is optional.
+   -- awsToken, md5, acl, type are all optional.
    local id, key = awsId, awsKey
    local date = os.date("!%a, %d %b %Y %H:%M:%S +0000")
    local hm, err = hmac:new(key)
    local StringToSign = (awsVerb..string.char(10)..
-                         md5..string.char(10)..
-                         type..string.char(10)..
+                         (md5 or "")..string.char(10)..
+                         (type or "")..string.char(10)..
                          string.char(10).. -- passing date as an x-amz header
+                         (acl and "x-amz-acl:"..acl..string.char(10) or "")..
                          "x-amz-date:"..date..string.char(10)..
                          (awsToken and "x-amz-security-token:"..awsToken..string.char(10) or "")..
                          destination)
@@ -84,26 +85,31 @@ function S3Bucket:getAwsCredentials()
    end
 end
 
-function S3Bucket:put(key, data)
+function S3Bucket:put(key, data, acl)
    -- Try to upload 'data' (string) into 'key'
    -- Maximum file size is 5 GB.
+   acl = acl or "private"
 
    local awsId, awsKey, awsToken = self:getAwsCredentials()
    local bucketname = self.bucket
+
+   key = URLencodeIgnoringPath(key)
    local url = "https://"..bucketname..".s3.amazonaws.com/"..key
+
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
    local md5 = enc(crypto.digest("md5", data, true))
-   key = URLencodeIgnoringPath(key)
    local authHeaders = generateAuthHeaders("PUT", awsId, awsKey, awsToken,
-                                         md5,
-                                         "",
-                                         "/"..bucketname.."/"..key)
+                                           md5,
+                                           acl,
+                                           nil,
+                                           "/"..bucketname.."/"..key)
    local body = {}
    local _, resultCode, headers, statusLine = http.request{method = "PUT",
                               url = url,
                               headers = {["x-amz-date"]=authHeaders.date,
                                          ["x-amz-security-token"]=awsToken, -- optional
+                                         ["x-amz-acl"]=acl, -- optional
                                          authorization=authHeaders.auth,
                                          ["content-md5"]=md5,
                                          ["content-length"]=#data},
@@ -130,14 +136,15 @@ function S3Bucket:get(key, sink)
    -- Try to download destination to the given LTN12 source.
    local awsId, awsKey, awsToken = self:getAwsCredentials()
    local bucketname = self.bucket
+   key = URLencodeIgnoringPath(key)
    local url = "https://"..bucketname..".s3.amazonaws.com/"..key
    -- 'enc' is a global function from hmac.lua that encodes the result
    -- in base64.
-   key = URLencodeIgnoringPath(key)
    local authHeaders = generateAuthHeaders("GET", awsId, awsKey, awsToken,
-                                         "",
-                                         "",
-                                         "/"..bucketname.."/"..key)
+                                           nil,
+                                           nil,
+                                           nil,
+                                           "/"..bucketname.."/"..key)
    local downloadAsString = not sink
    local body
    if downloadAsString then
@@ -163,6 +170,11 @@ function S3Bucket:get(key, sink)
               statusLine = statusLine,
            }
    end
+end
+
+function S3Bucket:getUrlFor(key)
+   key = URLencodeIgnoringPath(key)
+   return "https://"..self.bucket..".s3.amazonaws.com/"..key
 end
 
 return S3Bucket

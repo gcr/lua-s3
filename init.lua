@@ -22,6 +22,7 @@ local function generateAuthHeaders(awsVerb, awsId, awsKey, awsToken, md5, acl, t
                          destination)
    --print(StringToSign)
    headers, err = hm:generate_headers("AWS", id, "sha1", StringToSign)
+   headers.date = date
    return headers, err
 end
 
